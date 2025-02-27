@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Ecuaciones - Factor con División Automática</title>
+  <style>
+    :root {
+      --primary-color: #3498db;
+      --secondary-color: #2ecc71;
+      --danger-color: #e74c3c;
+      --accent-color: #9b59b6;
+      --background-color: #f2f2f2;
+      --text-color: #333;
+      --equation-bg: #fff;
+      --drag-hover: #ecf0f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: var(--background-color);
+      color: var(--text-color);
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      width: 100%;
+    }
+
+    h1 {
+      color: var(--primary-color);
+      margin-bottom: 10px;
+      font-size: 2rem;
+    }
+
+    .instructions {
+      max-width: 900px;
+      background-color: #fff;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .instructions h2 {
+      color: var(--primary-color);
+      margin-bottom: 10px;
+    }
+
+    .instructions ol {
+      padding-left: 20px;
+    }
+
+    .instructions li {
+      margin-bottom: 8px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .equation-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+
+    .equation-display {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 20px;
+      font-size: 2rem;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 768px) {
+      .equation-display {
+        font-size: 1.5rem;
+      }
+    }
+
+    .equation-side {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      min-height: 60px;
+      padding: 10px;
+      border-radius: 10px;
+      background-color: var(--equation-bg);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin: 0 10px;
+      flex: 1;
+      justify-content: center;
+      position: relative;
+    }
+
+    .equals-sign {
+      font-size: 2rem;
+      margin: 0 10px;
+      font-weight: bold;
+    }
+
+    .term {
+      cursor: grab;
+      padding: 5px 10px;
+      margin: 5px;
+      border-radius: 5px;
+      background-color: var(--primary-color);
+      color: white;
+      user-select: none;
+      transition: all 0.3s ease;
+      position: relative;
+      font-size: 1.1rem;
+    }
+
+    .term.dragging {
+      opacity: 0.5;
+      transform: scale(1.05);
+    }
+
+    .drop-target {
+      border: 2px dashed transparent;
+      transition: border 0.3s ease;
+    }
+    .drop-target.highlight {
+      border: 2px dashed var(--primary-color);
+      background-color: var(--drag-hover);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin-top: 30px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      background-color: var(--primary-color);
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn-success {
+      background-color: var(--secondary-color);
+    }
+
+    .btn-danger {
+      background-color: var(--danger-color);
+    }
+
+    .feedback {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+      font-size: 1.2rem;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .feedback.visible {
+      opacity: 1;
+    }
+
+    .feedback.success {
+      background-color: rgba(46, 204, 113, 0.2);
+      color: #27ae60;
+    }
+
+    .feedback.error {
+      background-color: rgba(231, 76, 60, 0.2);
+      color: #c0392b;
+    }
+
+    .solution-display {
+      margin-top: 20px;
+      font-size: 1.5rem;
+      padding: 15px;
+      border-radius: 10px;
+      background-color: var(--equation-bg);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      display: none;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+    }
+
+    .solution-display.visible {
+      display: block;
+      animation: fadeIn 0.5s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .history-container {
+      margin-top: 30px;
+      width: 100%;
+      max-width: 600px;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .history-container h2 {
+      color: var(--accent-color);
+      margin-bottom: 10px;
+    }
+
+    .history-step {
+      margin-bottom: 10px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 5px;
+      font-size: 1rem;
+      font-family: monospace;
+      white-space: pre-wrap; /* Para ver espacios y signos con claridad */
+    }
+
+    .confetti {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: #f00;
+      border-radius: 50%;
+      animation: confetti-fall 3s linear forwards;
+    }
+
+    @keyframes confetti-fall {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(600px) rotate(720deg);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ecuaciones - Factor con División Automática</h1>
+  </header>
+
+  <section class="instructions">
+    <h2>Instrucciones (con notación LaTeX corregida)</h2>
+    <ol>
+      <li>Arrastra los términos de un lado a otro (cambiando su signo) para agruparlos.</li>
+      <li>Pulsa <strong>Combinar Términos</strong> para unir coeficientes de \(x\) y valores numéricos.</li>
+      <li>Cuando la ecuación quede en la forma \(a x = b\), verás tres cajitas: factor (\(a\)), \(x\) y número (\(b\)).
+        <ul>
+          <li>Si la cajita de \(a\) está con \(x\), se interpreta como \(a x\).</li>
+          <li>Si la cajita de \(a\) se arrastra junto a \(b\), se interpreta como \(b \div a\) y se mostrará la solución \(x = \frac{b}{a}\) de inmediato.</li>
+        </ul>
+      </li>
+      <li>Pulsa <strong>Nueva Ecuación</strong> para practicar con otra.</li>
+    </ol>
+  </section>
+
+  <div class="container">
+    <div class="equation-container">
+      <div class="equation-display">
+        <div class="equation-side drop-target" id="leftSide">
+          <!-- Términos del lado izquierdo o factor + x -->
+        </div>
+        <div class="equals-sign">=</div>
+        <div class="equation-side drop-target" id="rightSide">
+          <!-- Términos del lado derecho o factor + x -->
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="combineBtn">Combinar Términos</button>
+      <!-- Se elimina el botón Resolver -->
+      <button class="btn btn-success" id="newEquationBtn">Nueva Ecuación</button>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+    <div class="solution-display" id="solutionDisplay"></div>
+
+    <div class="history-container" id="historyContainer">
+      <h2>Historial de Pasos</h2>
+      <!-- Cada paso se agregará aquí, en texto normal -->
+    </div>
+  </div>
+
+  <script>
+    class StepEquation {
+      constructor() {
+        this.leftTerms = [];
+        this.rightTerms = [];
+        this.factorView = false; 
+        this.factorTerm = null; 
+        this.xTerm = null;      
+        this.numTerm = null;    
+        this.solved = false;
+        this.generateEquation();
+      }
+
+      generateEquation() {
+        const leftCount = this.getRandomInt(2, 4);
+        const rightCount = this.getRandomInt(1, 3);
+
+        this.leftTerms = this.createRandomTerms(leftCount, 'left');
+        this.rightTerms = this.createRandomTerms(rightCount, 'right');
+
+        // Asegurar al menos un término con x
+        if (!this.hasXTerm()) {
+          this.leftTerms.push({
+            id: Date.now() + Math.random(),
+            type: 'x',
+            coef: this.getRandomNonZero(-5, 5),
+            side: 'left'
+          });
+        }
+      }
+
+      createRandomTerms(count, side) {
+        const arr = [];
+        for (let i = 0; i < count; i++) {
+          const isX = Math.random() < 0.5;
+          if (isX) {
+            arr.push({
+              id: Date.now() + Math.random(),
+              type: 'x',
+              coef: this.getRandomNonZero(-5, 5),
+              side
+            });
+          } else {
+            arr.push({
+              id: Date.now() + Math.random(),
+              type: 'num',
+              value: this.getRandomNonZero(-10, 10),
+              side
+            });
+          }
+        }
+        return arr;
+      }
+
+      hasXTerm() {
+        return (
+          this.leftTerms.some(t => t.type === 'x') ||
+          this.rightTerms.some(t => t.type === 'x')
+        );
+      }
+
+      getRandomNonZero(min, max) {
+        let val = 0;
+        while (val === 0) {
+          val = this.getRandomInt(min, max);
+        }
+        return val;
+      }
+
+      getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+
+      combineLikeTerms() {
+        if (this.factorView || this.solved) return;
+        this.leftTerms = this.combineSide(this.leftTerms, 'left');
+        this.rightTerms = this.combineSide(this.rightTerms, 'right');
+        this.checkFactorView();
+      }
+
+      combineSide(terms, side) {
+        let xCoef = 0;
+        let numVal = 0;
+        for (let t of terms) {
+          if (t.type === 'x') xCoef += t.coef;
+          else numVal += t.value;
+        }
+        const result = [];
+        if (xCoef !== 0) {
+          result.push({
+            id: Date.now() + Math.random(),
+            type: 'x',
+            coef: xCoef,
+            side
+          });
+        }
+        if (numVal !== 0) {
+          result.push({
+            id: Date.now() + Math.random(),
+            type: 'num',
+            value: numVal,
+            side
+          });
+        }
+        return result;
+      }
+
+      checkFactorView() {
+        if (this.solved) return;
+        // ax=b => 1 xTerm en un lado, 1 numTerm en el otro
+        const leftX = this.leftTerms.filter(t => t.type === 'x');
+        const leftNum = this.leftTerms.filter(t => t.type === 'num');
+        const rightX = this.rightTerms.filter(t => t.type === 'x');
+        const rightNum = this.rightTerms.filter(t => t.type === 'num');
+
+        // Caso: a x = b
+        if (leftX.length === 1 && leftNum.length === 0 && rightX.length === 0 && rightNum.length === 1) {
+          this.factorView = true;
+          this.factorTerm = { value: leftX[0].coef, side: 'left' };
+          this.xTerm = { side: 'left' };
+          this.numTerm = { value: rightNum[0].value, side: 'right' };
+          this.leftTerms = [];
+          this.rightTerms = [];
+        }
+        // Caso: b = a x
+        else if (rightX.length === 1 && rightNum.length === 0 && leftX.length === 0 && leftNum.length === 1) {
+          this.factorView = true;
+          this.factorTerm = { value: rightX[0].coef, side: 'right' };
+          this.xTerm = { side: 'right' };
+          this.numTerm = { value: leftNum[0].value, side: 'left' };
+          this.leftTerms = [];
+          this.rightTerms = [];
+        }
+      }
+
+      // Genera un string de la ecuación en texto normal
+      getEquationString() {
+        if (!this.factorView) {
+          return this.getNormalEquationString();
+        } else {
+          return this.getFactorEquationString();
+        }
+      }
+
+      getNormalEquationString() {
+        const leftStr = this.getSideString(this.leftTerms);
+        const rightStr = this.getSideString(this.rightTerms);
+        return `${leftStr} = ${rightStr}`;
+      }
+
+      getSideString(terms) {
+        if (terms.length === 0) return "0";
+        let parts = [];
+        for (let i = 0; i < terms.length; i++) {
+          const t = terms[i];
+          if (t.type === 'x') {
+            const c = t.coef;
+            if (c === 1) {
+              if (i === 0) parts.push("x");
+              else parts.push("+x");
+            } else if (c === -1) {
+              parts.push("-x");
+            } else if (c > 0) {
+              if (i === 0) parts.push(`${c}x`);
+              else parts.push(`+${c}x`);
+            } else {
+              parts.push(`${c}x`);
+            }
+          } else {
+            const val = t.value;
+            if (val > 0) {
+              if (i === 0) parts.push(`${val}`);
+              else parts.push(`+${val}`);
+            } else {
+              parts.push(`${val}`);
+            }
+          }
+        }
+        return parts.join(" ").replace(/\+\-/g, "-").trim() || "0";
+      }
+
+      getFactorEquationString() {
+        // Tres cajitas: factorTerm, xTerm, numTerm
+        const aSide = this.factorTerm.side;
+        const xSide = this.xTerm.side;
+        const bSide = this.numTerm.side;
+        const aVal = this.factorTerm.value;
+        const bVal = this.numTerm.value;
+
+        let leftStr = "";
+        let rightStr = "";
+
+        // 1) a,x en left, b en right => "a x = b"
+        if (aSide === 'left' && xSide === 'left' && bSide === 'right') {
+          leftStr = `${this.formatFactor(aVal)}x`;
+          rightStr = `${bVal}`;
+        }
+        // 2) x en left, a,b en right => "x = b ÷ a"
+        else if (xSide === 'left' && aSide === 'right' && bSide === 'right') {
+          leftStr = `x`;
+          rightStr = `${bVal} ÷ ${this.formatFactor(aVal)}`;
+        }
+        // 3) b en left, a,x en right => "b = a x"
+        else if (bSide === 'left' && aSide === 'right' && xSide === 'right') {
+          leftStr = `${bVal}`;
+          rightStr = `${this.formatFactor(aVal)}x`;
+        }
+        // 4) b,a en left, x en right => "b ÷ a = x"
+        else if (bSide === 'left' && aSide === 'left' && xSide === 'right') {
+          leftStr = `${bVal} ÷ ${this.formatFactor(aVal)}`;
+          rightStr = `x`;
+        }
+        else {
+          leftStr = "?";
+          rightStr = "?";
+        }
+        return `${leftStr} = ${rightStr}`;
+      }
+
+      formatFactor(a) {
+        if (a === 1) return "1";
+        if (a === -1) return "-1";
+        return `${a}`;
+      }
+
+      // Resolver "en automático" si factorTerm y numTerm están en el mismo lado => x = b/a
+      autoSolveIfPossible() {
+        if (this.solved) return null;
+
+        // Solo aplica si factorView = true
+        if (!this.factorView) return null;
+
+        // Si factorTerm y numTerm están en el mismo lado, interpretamos b ÷ a => x
+        const sameSide = (this.factorTerm.side === this.numTerm.side);
+        if (sameSide) {
+          // Calcular b/a
+          const a = this.factorTerm.value;
+          const b = this.numTerm.value;
+          if (a === 0) {
+            if (b === 0) {
+              this.solved = true;
+              return { infinite: true };
+            } else {
+              this.solved = true;
+              return { none: true };
+            }
+          }
+          const val = b / a;
+          this.solved = true;
+          return { value: val };
+        }
+        return null;
+      }
+    }
+
+    class EquationUI {
+      constructor() {
+        this.leftSideEl = document.getElementById('leftSide');
+        this.rightSideEl = document.getElementById('rightSide');
+        this.feedbackEl = document.getElementById('feedback');
+        this.solutionEl = document.getElementById('solutionDisplay');
+        this.historyEl = document.getElementById('historyContainer');
+
+        this.combineBtn = document.getElementById('combineBtn');
+        this.newEquationBtn = document.getElementById('newEquationBtn');
+
+        this.equation = new StepEquation();
+        this.draggingTerm = null;
+
+        this.initEvents();
+        this.renderEquation();
+        this.recordHistory(); // estado inicial
+      }
+
+      initEvents() {
+        this.setupDropZone(this.leftSideEl, 'left');
+        this.setupDropZone(this.rightSideEl, 'right');
+
+        this.combineBtn.addEventListener('click', () => {
+          if (this.equation.solved) {
+            this.showFeedback("La ecuación ya está resuelta.", "error");
+            return;
+          }
+          this.equation.combineLikeTerms();
+          this.renderEquation();
+          this.recordHistory();
+          this.showFeedback("Términos combinados.", "success");
+        });
+
+        this.newEquationBtn.addEventListener('click', () => {
+          this.newEquation();
+        });
+      }
+
+      setupDropZone(element, side) {
+        element.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          element.classList.add('highlight');
+        });
+        element.addEventListener('dragleave', () => {
+          element.classList.remove('highlight');
+        });
+        element.addEventListener('drop', (e) => {
+          e.preventDefault();
+          element.classList.remove('highlight');
+          if (this.draggingTerm) {
+            this.moveTerm(this.draggingTerm, side);
+          }
+        });
+      }
+
+      renderEquation() {
+        this.leftSideEl.innerHTML = '';
+        this.rightSideEl.innerHTML = '';
+
+        if (!this.equation.factorView) {
+          // modo normal
+          this.equation.leftTerms.forEach((t, i) => {
+            this.leftSideEl.appendChild(this.createTermElement(t, i, 'left'));
+          });
+          if (this.equation.leftTerms.length === 0) {
+            this.leftSideEl.appendChild(this.createZeroElement());
+          }
+
+          this.equation.rightTerms.forEach((t, i) => {
+            this.rightSideEl.appendChild(this.createTermElement(t, i, 'right'));
+          });
+          if (this.equation.rightTerms.length === 0) {
+            this.rightSideEl.appendChild(this.createZeroElement());
+          }
+        } else {
+          // factorView
+          const leftItems = this.getFactorItems('left');
+          leftItems.forEach((item, idx) => {
+            this.leftSideEl.appendChild(this.createFactorItemElement(item, 'left', idx));
+          });
+          if (leftItems.length === 0) {
+            this.leftSideEl.appendChild(this.createZeroElement());
+          }
+
+          const rightItems = this.getFactorItems('right');
+          rightItems.forEach((item, idx) => {
+            this.rightSideEl.appendChild(this.createFactorItemElement(item, 'right', idx));
+          });
+          if (rightItems.length === 0) {
+            this.rightSideEl.appendChild(this.createZeroElement());
+          }
+        }
+      }
+
+      createZeroElement() {
+        const el = document.createElement('div');
+        el.className = 'term';
+        el.textContent = '0';
+        el.style.cursor = 'default';
+        return el;
+      }
+
+      createTermElement(term, index, side) {
+        const el = document.createElement('div');
+        el.className = 'term';
+        el.textContent = this.formatTerm(term);
+        el.draggable = true;
+
+        el.addEventListener('dragstart', (e) => {
+          this.draggingTerm = { term, index, side, isFactorItem: false };
+          el.classList.add('dragging');
+        });
+        el.addEventListener('dragend', () => {
+          el.classList.remove('dragging');
+          this.draggingTerm = null;
+        });
+
+        return el;
+      }
+
+      formatTerm(term) {
+        if (term.type === 'x') {
+          if (term.coef === 1) return 'x';
+          if (term.coef === -1) return '-x';
+          return (term.coef > 0 ? `+${term.coef}` : `${term.coef}`) + 'x';
+        } else {
+          return term.value > 0 ? `+${term.value}` : `${term.value}`;
+        }
+      }
+
+      getFactorItems(side) {
+        const items = [];
+        if (this.equation.factorTerm.side === side) {
+          items.push({ type: 'factor', value: this.equation.factorTerm.value });
+        }
+        if (this.equation.xTerm.side === side) {
+          items.push({ type: 'x' });
+        }
+        if (this.equation.numTerm.side === side) {
+          items.push({ type: 'num', value: this.equation.numTerm.value });
+        }
+        return items;
+      }
+
+      createFactorItemElement(item, side, index) {
+        const el = document.createElement('div');
+        el.className = 'term';
+        el.draggable = true;
+
+        if (item.type === 'factor') {
+          if (item.value === 1) el.textContent = '1';
+          else if (item.value === -1) el.textContent = '-1';
+          else el.textContent = '' + item.value;
+        } else if (item.type === 'x') {
+          el.textContent = 'x';
+        } else {
+          // num
+          if (item.value >= 0) el.textContent = `+${item.value}`;
+          else el.textContent = `${item.value}`;
+        }
+
+        el.addEventListener('dragstart', (e) => {
+          this.draggingTerm = { item, side, index, isFactorItem: true };
+          el.classList.add('dragging');
+        });
+        el.addEventListener('dragend', () => {
+          el.classList.remove('dragging');
+          this.draggingTerm = null;
+        });
+
+        return el;
+      }
+
+      moveTerm(dragInfo, targetSide) {
+        if (this.equation.solved) {
+          this.showFeedback("La ecuación ya está resuelta.", "error");
+          return;
+        }
+
+        if (!this.equation.factorView) {
+          // modo normal
+          const { term, index, side } = dragInfo;
+          if (side === 'left') {
+            this.equation.leftTerms.splice(index, 1);
+          } else {
+            this.equation.rightTerms.splice(index, 1);
+          }
+          // invierte signo
+          if (term.type === 'x') {
+            term.coef = -term.coef;
+          } else {
+            term.value = -term.value;
+          }
+          term.side = targetSide;
+          if (targetSide === 'left') {
+            this.equation.leftTerms.push(term);
+          } else {
+            this.equation.rightTerms.push(term);
+          }
+        } else {
+          // factorView
+          const { item } = dragInfo;
+          if (item.type === 'factor') {
+            this.equation.factorTerm.side = targetSide;
+          } else if (item.type === 'x') {
+            this.equation.xTerm.side = targetSide;
+          } else {
+            this.equation.numTerm.side = targetSide;
+          }
+        }
+
+        this.renderEquation();
+        this.recordHistory();
+        // Aquí hacemos el "auto-solve" si factor y numTerm están juntos
+        this.maybeAutoSolve();
+      }
+
+      maybeAutoSolve() {
+        const result = this.equation.autoSolveIfPossible();
+        if (result) {
+          // Se resolvió
+          if (result.infinite) {
+            this.showFeedback("Infinitas soluciones (0=0).", "success");
+            this.solutionEl.textContent = "Infinitas soluciones (cualquier x)";
+            this.solutionEl.classList.add('visible');
+            this.createConfetti();
+          } else if (result.none) {
+            this.showFeedback("Sin solución.", "error");
+            this.solutionEl.textContent = "Sin solución";
+            this.solutionEl.classList.add('visible');
+          } else if (result.value !== undefined) {
+            const val = result.value;
+            this.showFeedback(`x = ${val.toFixed(2)}`, "success");
+            this.solutionEl.textContent = `x = ${val.toFixed(2)}`;
+            this.solutionEl.classList.add('visible');
+            this.createConfetti();
+          }
+        }
+      }
+
+      newEquation() {
+        this.equation = new StepEquation();
+        this.solutionEl.classList.remove('visible');
+        this.feedbackEl.classList.remove('visible');
+        // borrar historial
+        this.historyEl.querySelectorAll('.history-step').forEach(el => el.remove());
+        this.renderEquation();
+        this.recordHistory();
+      }
+
+      recordHistory() {
+        const eqStr = this.equation.getEquationString();
+        const stepEl = document.createElement('div');
+        stepEl.className = 'history-step';
+        stepEl.textContent = eqStr;
+        this.historyEl.appendChild(stepEl);
+      }
+
+      showFeedback(msg, type) {
+        this.feedbackEl.textContent = msg;
+        this.feedbackEl.className = `feedback visible ${type}`;
+        setTimeout(() => {
+          this.feedbackEl.classList.remove('visible');
+        }, 4000);
+      }
+
+      createConfetti() {
+        const colors = [
+          '#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3',
+          '#03a9f4','#00bcd4','#2ecc71','#f1c40f','#e67e22','#e74c3c'
+        ];
+        for (let i = 0; i < 60; i++) {
+          const confetti = document.createElement('div');
+          confetti.classList.add('confetti');
+          confetti.style.left = `${Math.random() * 100}%`;
+          confetti.style.top = '-10px';
+          confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+          confetti.style.width = `${Math.random() * 10 + 5}px`;
+          confetti.style.height = `${Math.random() * 10 + 5}px`;
+          confetti.style.animationDuration = `${Math.random() * 2 + 2}s`;
+          document.body.appendChild(confetti);
+          setTimeout(() => {
+            document.body.removeChild(confetti);
+          }, 4000);
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      new EquationUI();
+    });
+  </script>
+</body>
+</html>
