@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Ecuaciones - Factor con División Automática</title>
+  <title>Ecuaciones de Primer Grado</title>
+
+  <!-- KaTeX para renderizar expresiones LaTeX -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/katex.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/katex.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/contrib/auto-render.min.js"></script>
+
   <style>
     :root {
       --primary-color: #3498db;
@@ -14,6 +20,7 @@
       --text-color: #333;
       --equation-bg: #fff;
       --drag-hover: #ecf0f1;
+      --term-color: #bdc3c7; /* Gris tenue */
     }
 
     * {
@@ -120,30 +127,16 @@
     }
 
     .term {
-      cursor: grab;
+      background-color: var(--term-color);
+      color: #333;
+      cursor: default;
       padding: 5px 10px;
       margin: 5px;
       border-radius: 5px;
-      background-color: var(--primary-color);
-      color: white;
       user-select: none;
       transition: all 0.3s ease;
       position: relative;
       font-size: 1.1rem;
-    }
-
-    .term.dragging {
-      opacity: 0.5;
-      transform: scale(1.05);
-    }
-
-    .drop-target {
-      border: 2px dashed transparent;
-      transition: border 0.3s ease;
-    }
-    .drop-target.highlight {
-      border: 2px dashed var(--primary-color);
-      background-color: var(--drag-hover);
     }
 
     .controls {
@@ -172,10 +165,6 @@
 
     .btn-success {
       background-color: var(--secondary-color);
-    }
-
-    .btn-danger {
-      background-color: var(--danger-color);
     }
 
     .feedback {
@@ -250,66 +239,47 @@
       padding-bottom: 5px;
       font-size: 1rem;
       font-family: monospace;
-      white-space: pre-wrap; /* Para ver espacios y signos con claridad */
-    }
-
-    .confetti {
-      position: absolute;
-      width: 10px;
-      height: 10px;
-      background-color: #f00;
-      border-radius: 50%;
-      animation: confetti-fall 3s linear forwards;
-    }
-
-    @keyframes confetti-fall {
-      0% {
-        transform: translateY(0) rotate(0deg);
-        opacity: 1;
-      }
-      100% {
-        transform: translateY(600px) rotate(720deg);
-        opacity: 0;
-      }
+      white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Ecuaciones - Factor con División Automática</h1>
+    <h1>Ecuaciones de Primer Grado</h1>
   </header>
 
   <section class="instructions">
-    <h2>Instrucciones (con notación LaTeX corregida)</h2>
+    <h2>Instrucciones</h2>
     <ol>
-      <li>Arrastra los términos de un lado a otro (cambiando su signo) para agruparlos.</li>
-      <li>Pulsa <strong>Combinar Términos</strong> para unir coeficientes de \(x\) y valores numéricos.</li>
-      <li>Cuando la ecuación quede en la forma \(a x = b\), verás tres cajitas: factor (\(a\)), \(x\) y número (\(b\)).
+      <li>Arrastra los términos de un lado a otro para agruparlos (se invierte su signo al cruzar el "="). <br>
+          Verás siempre el signo (+ o -) en cada cajita.</li>
+      <li>Pulsa <strong>Combinar Términos</strong> para unir coeficientes de \(x\) y valores numéricos en cada lado.</li>
+      <li>Cuando la ecuación quede en la forma \(a x = b\), pulsa <strong>Resolver</strong>:
         <ul>
-          <li>Si la cajita de \(a\) está con \(x\), se interpreta como \(a x\).</li>
-          <li>Si la cajita de \(a\) se arrastra junto a \(b\), se interpreta como \(b \div a\) y se mostrará la solución \(x = \frac{b}{a}\) de inmediato.</li>
+          <li>La primera vez mostrará la solución en forma de fracción: \(\displaystyle x = \frac{b}{a}\).</li>
+          <li>La segunda vez mostrará el valor decimal.</li>
         </ul>
       </li>
-      <li>Pulsa <strong>Nueva Ecuación</strong> para practicar con otra.</li>
+      <li>Pulsa <strong>Nueva Ecuación</strong> para generar otro ejercicio.</li>
     </ol>
   </section>
 
   <div class="container">
     <div class="equation-container">
       <div class="equation-display">
-        <div class="equation-side drop-target" id="leftSide">
-          <!-- Términos del lado izquierdo o factor + x -->
+        <div class="equation-side" id="leftSide">
+          <!-- Términos del lado izquierdo -->
         </div>
         <div class="equals-sign">=</div>
-        <div class="equation-side drop-target" id="rightSide">
-          <!-- Términos del lado derecho o factor + x -->
+        <div class="equation-side" id="rightSide">
+          <!-- Términos del lado derecho -->
         </div>
       </div>
     </div>
 
     <div class="controls">
       <button class="btn" id="combineBtn">Combinar Términos</button>
-      <!-- Se elimina el botón Resolver -->
+      <button class="btn" id="solveBtn">Resolver</button>
       <button class="btn btn-success" id="newEquationBtn">Nueva Ecuación</button>
     </div>
 
@@ -323,15 +293,25 @@
   </div>
 
   <script>
-    class StepEquation {
+    // =========== MODELO DE DATOS ============
+    class Term {
+      constructor(type, coef, value, side) {
+        // type: 'x' | 'num'
+        // coef: number (para 'x')
+        // value: number (para 'num')
+        // side: 'left' | 'right'
+        this.type = type;    // 'x' o 'num'
+        this.coef = coef;    // válido si type==='x'
+        this.value = value;  // válido si type==='num'
+        this.side = side;
+      }
+    }
+
+    class Equation {
       constructor() {
         this.leftTerms = [];
         this.rightTerms = [];
-        this.factorView = false; 
-        this.factorTerm = null; 
-        this.xTerm = null;      
-        this.numTerm = null;    
-        this.solved = false;
+        this.solvedStage = 0; // 0 => sin resolver, 1 => fracción, 2 => decimal
         this.generateEquation();
       }
 
@@ -344,239 +324,172 @@
 
         // Asegurar al menos un término con x
         if (!this.hasXTerm()) {
-          this.leftTerms.push({
-            id: Date.now() + Math.random(),
-            type: 'x',
-            coef: this.getRandomNonZero(-5, 5),
-            side: 'left'
-          });
+          this.leftTerms.push(new Term('x', this.getRandomNonZero(-5,5), null, 'left'));
         }
       }
 
       createRandomTerms(count, side) {
         const arr = [];
-        for (let i = 0; i < count; i++) {
-          const isX = Math.random() < 0.5;
+        for (let i=0; i<count; i++) {
+          const isX = Math.random()<0.5;
           if (isX) {
-            arr.push({
-              id: Date.now() + Math.random(),
-              type: 'x',
-              coef: this.getRandomNonZero(-5, 5),
-              side
-            });
+            arr.push(new Term('x', this.getRandomNonZero(-5,5), null, side));
           } else {
-            arr.push({
-              id: Date.now() + Math.random(),
-              type: 'num',
-              value: this.getRandomNonZero(-10, 10),
-              side
-            });
+            arr.push(new Term('num', null, this.getRandomNonZero(-10,10), side));
           }
         }
         return arr;
       }
 
       hasXTerm() {
-        return (
-          this.leftTerms.some(t => t.type === 'x') ||
-          this.rightTerms.some(t => t.type === 'x')
-        );
+        return this.leftTerms.some(t=>t.type==='x') || this.rightTerms.some(t=>t.type==='x');
       }
 
       getRandomNonZero(min, max) {
-        let val = 0;
-        while (val === 0) {
-          val = this.getRandomInt(min, max);
+        let val=0;
+        while(val===0){
+          val=this.getRandomInt(min, max);
         }
         return val;
       }
 
       getRandomInt(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
+        return Math.floor(Math.random()*(max-min+1))+min;
       }
 
+      // Combinar términos semejantes en cada lado
       combineLikeTerms() {
-        if (this.factorView || this.solved) return;
+        if (this.solvedStage>0) return; // si ya empezamos a mostrar solución, no combinamos
         this.leftTerms = this.combineSide(this.leftTerms, 'left');
         this.rightTerms = this.combineSide(this.rightTerms, 'right');
-        this.checkFactorView();
       }
 
       combineSide(terms, side) {
-        let xCoef = 0;
-        let numVal = 0;
+        let xCoef=0, numVal=0;
         for (let t of terms) {
-          if (t.type === 'x') xCoef += t.coef;
-          else numVal += t.value;
+          if (t.type==='x') {
+            xCoef+=t.coef;
+          } else {
+            numVal+=t.value;
+          }
         }
-        const result = [];
-        if (xCoef !== 0) {
-          result.push({
-            id: Date.now() + Math.random(),
-            type: 'x',
-            coef: xCoef,
-            side
-          });
+        const newArr=[];
+        if (xCoef!==0) {
+          newArr.push(new Term('x', xCoef, null, side));
         }
-        if (numVal !== 0) {
-          result.push({
-            id: Date.now() + Math.random(),
-            type: 'num',
-            value: numVal,
-            side
-          });
+        if (numVal!==0) {
+          newArr.push(new Term('num', null, numVal, side));
         }
-        return result;
+        return newArr;
       }
 
-      checkFactorView() {
-        if (this.solved) return;
-        // ax=b => 1 xTerm en un lado, 1 numTerm en el otro
-        const leftX = this.leftTerms.filter(t => t.type === 'x');
-        const leftNum = this.leftTerms.filter(t => t.type === 'num');
-        const rightX = this.rightTerms.filter(t => t.type === 'x');
-        const rightNum = this.rightTerms.filter(t => t.type === 'num');
-
-        // Caso: a x = b
-        if (leftX.length === 1 && leftNum.length === 0 && rightX.length === 0 && rightNum.length === 1) {
-          this.factorView = true;
-          this.factorTerm = { value: leftX[0].coef, side: 'left' };
-          this.xTerm = { side: 'left' };
-          this.numTerm = { value: rightNum[0].value, side: 'right' };
-          this.leftTerms = [];
-          this.rightTerms = [];
-        }
-        // Caso: b = a x
-        else if (rightX.length === 1 && rightNum.length === 0 && leftX.length === 0 && leftNum.length === 1) {
-          this.factorView = true;
-          this.factorTerm = { value: rightX[0].coef, side: 'right' };
-          this.xTerm = { side: 'right' };
-          this.numTerm = { value: leftNum[0].value, side: 'left' };
-          this.leftTerms = [];
-          this.rightTerms = [];
-        }
-      }
-
-      // Genera un string de la ecuación en texto normal
+      // String textual para historial
       getEquationString() {
-        if (!this.factorView) {
-          return this.getNormalEquationString();
-        } else {
-          return this.getFactorEquationString();
-        }
-      }
-
-      getNormalEquationString() {
-        const leftStr = this.getSideString(this.leftTerms);
-        const rightStr = this.getSideString(this.rightTerms);
+        const leftStr = this.sideString(this.leftTerms);
+        const rightStr = this.sideString(this.rightTerms);
         return `${leftStr} = ${rightStr}`;
       }
 
-      getSideString(terms) {
-        if (terms.length === 0) return "0";
-        let parts = [];
-        for (let i = 0; i < terms.length; i++) {
-          const t = terms[i];
-          if (t.type === 'x') {
-            const c = t.coef;
-            if (c === 1) {
-              if (i === 0) parts.push("x");
-              else parts.push("+x");
-            } else if (c === -1) {
-              parts.push("-x");
-            } else if (c > 0) {
-              if (i === 0) parts.push(`${c}x`);
-              else parts.push(`+${c}x`);
+      sideString(terms) {
+        if (terms.length===0) return '0';
+        let result='';
+        for (let t of terms) {
+          if (t.type==='x') {
+            const c=t.coef;
+            if (c===1) {
+              result+='+x';
+            } else if (c===-1) {
+              result+='-x';
+            } else if (c>0) {
+              result+=`+${c}x`;
             } else {
-              parts.push(`${c}x`);
+              result+=`${c}x`;
             }
           } else {
-            const val = t.value;
-            if (val > 0) {
-              if (i === 0) parts.push(`${val}`);
-              else parts.push(`+${val}`);
+            // num
+            const v=t.value;
+            if (v>0) {
+              result+=`+${v}`;
             } else {
-              parts.push(`${val}`);
+              result+=`${v}`;
             }
           }
         }
-        return parts.join(" ").replace(/\+\-/g, "-").trim() || "0";
+        // quitar + inicial si existe
+        if (result.startsWith('+')) {
+          result=result.slice(1);
+        }
+        // arreglar +-
+        result=result.replace(/\+\-/g,'-');
+        return result.trim() || '0';
       }
 
-      getFactorEquationString() {
-        // Tres cajitas: factorTerm, xTerm, numTerm
-        const aSide = this.factorTerm.side;
-        const xSide = this.xTerm.side;
-        const bSide = this.numTerm.side;
-        const aVal = this.factorTerm.value;
-        const bVal = this.numTerm.value;
+      // Detectar si está en la forma a x = b
+      isAxEqB() {
+        const leftX = this.leftTerms.filter(t=>t.type==='x');
+        const leftNum = this.leftTerms.filter(t=>t.type==='num');
+        const rightX = this.rightTerms.filter(t=>t.type==='x');
+        const rightNum = this.rightTerms.filter(t=>t.type==='num');
 
-        let leftStr = "";
-        let rightStr = "";
-
-        // 1) a,x en left, b en right => "a x = b"
-        if (aSide === 'left' && xSide === 'left' && bSide === 'right') {
-          leftStr = `${this.formatFactor(aVal)}x`;
-          rightStr = `${bVal}`;
-        }
-        // 2) x en left, a,b en right => "x = b ÷ a"
-        else if (xSide === 'left' && aSide === 'right' && bSide === 'right') {
-          leftStr = `x`;
-          rightStr = `${bVal} ÷ ${this.formatFactor(aVal)}`;
-        }
-        // 3) b en left, a,x en right => "b = a x"
-        else if (bSide === 'left' && aSide === 'right' && xSide === 'right') {
-          leftStr = `${bVal}`;
-          rightStr = `${this.formatFactor(aVal)}x`;
-        }
-        // 4) b,a en left, x en right => "b ÷ a = x"
-        else if (bSide === 'left' && aSide === 'left' && xSide === 'right') {
-          leftStr = `${bVal} ÷ ${this.formatFactor(aVal)}`;
-          rightStr = `x`;
-        }
-        else {
-          leftStr = "?";
-          rightStr = "?";
-        }
-        return `${leftStr} = ${rightStr}`;
+        // Caso a x = b
+        if (leftX.length===1 && leftNum.length===0 && rightX.length===0 && rightNum.length===1) return true;
+        // Caso b = a x
+        if (rightX.length===1 && rightNum.length===0 && leftX.length===0 && leftNum.length===1) return true;
+        return false;
       }
 
-      formatFactor(a) {
-        if (a === 1) return "1";
-        if (a === -1) return "-1";
-        return `${a}`;
-      }
-
-      // Resolver "en automático" si factorTerm y numTerm están en el mismo lado => x = b/a
-      autoSolveIfPossible() {
-        if (this.solved) return null;
-
-        // Solo aplica si factorView = true
-        if (!this.factorView) return null;
-
-        // Si factorTerm y numTerm están en el mismo lado, interpretamos b ÷ a => x
-        const sameSide = (this.factorTerm.side === this.numTerm.side);
-        if (sameSide) {
-          // Calcular b/a
-          const a = this.factorTerm.value;
-          const b = this.numTerm.value;
-          if (a === 0) {
-            if (b === 0) {
-              this.solved = true;
-              return { infinite: true };
-            } else {
-              this.solved = true;
-              return { none: true };
-            }
-          }
-          const val = b / a;
-          this.solved = true;
-          return { value: val };
+      getAB() {
+        // Extraer a y b
+        // a x = b
+        const leftX=this.leftTerms.find(t=>t.type==='x');
+        const rightNum=this.rightTerms.find(t=>t.type==='num');
+        if (leftX && rightNum && this.leftTerms.length===1 && this.rightTerms.length===1) {
+          return {a:leftX.coef, b:rightNum.value};
+        }
+        // b = a x
+        const leftNum=this.leftTerms.find(t=>t.type==='num');
+        const rightX=this.rightTerms.find(t=>t.type==='x');
+        if (leftNum && rightX && this.leftTerms.length===1 && this.rightTerms.length===1) {
+          return {a:rightX.coef, b:leftNum.value};
         }
         return null;
       }
+
+      solveStep() {
+        // 0 => no fracción/decimal mostrado
+        // 1 => fracción mostrada
+        // 2 => decimal mostrado
+        if (!this.isAxEqB()) {
+          return {error:true, message:"No está en la forma ax = b todavía."};
+        }
+        const ab=this.getAB();
+        if (!ab) {
+          return {error:true, message:"No se pudo extraer a y b."};
+        }
+        const {a,b}=ab;
+        if (a===0) {
+          if (b===0) {
+            return {infinite:true};
+          } else {
+            return {none:true};
+          }
+        }
+
+        if (this.solvedStage===0) {
+          // primer clic => fracción
+          this.solvedStage=1;
+          return {fraction:true,a,b};
+        } else if (this.solvedStage===1) {
+          // segundo clic => decimal
+          this.solvedStage=2;
+          return {decimal:true, value:b/a};
+        } else {
+          return {done:true, message:"Ya se mostró la solución."};
+        }
+      }
     }
 
+    // =========== INTERFAZ DE USUARIO ============
     class EquationUI {
       constructor() {
         this.leftSideEl = document.getElementById('leftSide');
@@ -586,10 +499,11 @@
         this.historyEl = document.getElementById('historyContainer');
 
         this.combineBtn = document.getElementById('combineBtn');
+        this.solveBtn = document.getElementById('solveBtn');
         this.newEquationBtn = document.getElementById('newEquationBtn');
 
-        this.equation = new StepEquation();
-        this.draggingTerm = null;
+        this.equation = new Equation();
+        this.draggingTerm=null;
 
         this.initEvents();
         this.renderEquation();
@@ -597,277 +511,178 @@
       }
 
       initEvents() {
-        this.setupDropZone(this.leftSideEl, 'left');
-        this.setupDropZone(this.rightSideEl, 'right');
+        this.setupSide(this.leftSideEl, 'left');
+        this.setupSide(this.rightSideEl, 'right');
 
-        this.combineBtn.addEventListener('click', () => {
-          if (this.equation.solved) {
-            this.showFeedback("La ecuación ya está resuelta.", "error");
-            return;
-          }
+        this.combineBtn.addEventListener('click', ()=>{
           this.equation.combineLikeTerms();
           this.renderEquation();
           this.recordHistory();
           this.showFeedback("Términos combinados.", "success");
         });
 
-        this.newEquationBtn.addEventListener('click', () => {
-          this.newEquation();
+        this.solveBtn.addEventListener('click', ()=>{
+          this.solveEquationStep();
+        });
+
+        this.newEquationBtn.addEventListener('click', ()=>{
+          this.equation = new Equation();
+          this.solutionEl.classList.remove('visible');
+          this.feedbackEl.classList.remove('visible');
+          // limpiar historial
+          this.historyEl.querySelectorAll('.history-step').forEach(el=>el.remove());
+          this.renderEquation();
+          this.recordHistory();
         });
       }
 
-      setupDropZone(element, side) {
-        element.addEventListener('dragover', (e) => {
+      setupSide(sideEl, side) {
+        sideEl.addEventListener('dragover',(e)=>{
           e.preventDefault();
-          element.classList.add('highlight');
         });
-        element.addEventListener('dragleave', () => {
-          element.classList.remove('highlight');
-        });
-        element.addEventListener('drop', (e) => {
+        sideEl.addEventListener('drop',(e)=>{
           e.preventDefault();
-          element.classList.remove('highlight');
-          if (this.draggingTerm) {
-            this.moveTerm(this.draggingTerm, side);
+          if (!this.draggingTerm) return;
+          const {term,index,side:oldSide} = this.draggingTerm;
+          if (oldSide!==side) {
+            // Quitar del array original
+            if (oldSide==='left') {
+              this.equation.leftTerms.splice(index,1);
+            } else {
+              this.equation.rightTerms.splice(index,1);
+            }
+            // Invertir signo
+            if (term.type==='x') {
+              term.coef=-term.coef;
+            } else {
+              term.value=-term.value;
+            }
+            term.side=side;
+            if (side==='left') {
+              this.equation.leftTerms.push(term);
+            } else {
+              this.equation.rightTerms.push(term);
+            }
+            this.renderEquation();
+            this.recordHistory();
           }
         });
       }
 
       renderEquation() {
-        this.leftSideEl.innerHTML = '';
-        this.rightSideEl.innerHTML = '';
+        this.leftSideEl.innerHTML='';
+        this.rightSideEl.innerHTML='';
 
-        if (!this.equation.factorView) {
-          // modo normal
-          this.equation.leftTerms.forEach((t, i) => {
-            this.leftSideEl.appendChild(this.createTermElement(t, i, 'left'));
-          });
-          if (this.equation.leftTerms.length === 0) {
-            this.leftSideEl.appendChild(this.createZeroElement());
-          }
-
-          this.equation.rightTerms.forEach((t, i) => {
-            this.rightSideEl.appendChild(this.createTermElement(t, i, 'right'));
-          });
-          if (this.equation.rightTerms.length === 0) {
-            this.rightSideEl.appendChild(this.createZeroElement());
-          }
+        // Lado izquierdo
+        if (this.equation.leftTerms.length===0) {
+          const zeroEl=document.createElement('div');
+          zeroEl.className='term';
+          zeroEl.textContent='0';
+          this.leftSideEl.appendChild(zeroEl);
         } else {
-          // factorView
-          const leftItems = this.getFactorItems('left');
-          leftItems.forEach((item, idx) => {
-            this.leftSideEl.appendChild(this.createFactorItemElement(item, 'left', idx));
+          this.equation.leftTerms.forEach((t,i)=>{
+            this.leftSideEl.appendChild(this.createTermEl(t,i));
           });
-          if (leftItems.length === 0) {
-            this.leftSideEl.appendChild(this.createZeroElement());
-          }
-
-          const rightItems = this.getFactorItems('right');
-          rightItems.forEach((item, idx) => {
-            this.rightSideEl.appendChild(this.createFactorItemElement(item, 'right', idx));
-          });
-          if (rightItems.length === 0) {
-            this.rightSideEl.appendChild(this.createZeroElement());
-          }
         }
-      }
 
-      createZeroElement() {
-        const el = document.createElement('div');
-        el.className = 'term';
-        el.textContent = '0';
-        el.style.cursor = 'default';
-        return el;
-      }
-
-      createTermElement(term, index, side) {
-        const el = document.createElement('div');
-        el.className = 'term';
-        el.textContent = this.formatTerm(term);
-        el.draggable = true;
-
-        el.addEventListener('dragstart', (e) => {
-          this.draggingTerm = { term, index, side, isFactorItem: false };
-          el.classList.add('dragging');
-        });
-        el.addEventListener('dragend', () => {
-          el.classList.remove('dragging');
-          this.draggingTerm = null;
-        });
-
-        return el;
-      }
-
-      formatTerm(term) {
-        if (term.type === 'x') {
-          if (term.coef === 1) return 'x';
-          if (term.coef === -1) return '-x';
-          return (term.coef > 0 ? `+${term.coef}` : `${term.coef}`) + 'x';
+        // Lado derecho
+        if (this.equation.rightTerms.length===0) {
+          const zeroEl=document.createElement('div');
+          zeroEl.className='term';
+          zeroEl.textContent='0';
+          this.rightSideEl.appendChild(zeroEl);
         } else {
-          return term.value > 0 ? `+${term.value}` : `${term.value}`;
+          this.equation.rightTerms.forEach((t,i)=>{
+            this.rightSideEl.appendChild(this.createTermEl(t,i));
+          });
         }
       }
 
-      getFactorItems(side) {
-        const items = [];
-        if (this.equation.factorTerm.side === side) {
-          items.push({ type: 'factor', value: this.equation.factorTerm.value });
-        }
-        if (this.equation.xTerm.side === side) {
-          items.push({ type: 'x' });
-        }
-        if (this.equation.numTerm.side === side) {
-          items.push({ type: 'num', value: this.equation.numTerm.value });
-        }
-        return items;
-      }
-
-      createFactorItemElement(item, side, index) {
-        const el = document.createElement('div');
-        el.className = 'term';
-        el.draggable = true;
-
-        if (item.type === 'factor') {
-          if (item.value === 1) el.textContent = '1';
-          else if (item.value === -1) el.textContent = '-1';
-          else el.textContent = '' + item.value;
-        } else if (item.type === 'x') {
-          el.textContent = 'x';
+      createTermEl(term, index) {
+        const el=document.createElement('div');
+        el.className='term';
+        // Siempre mostrar signo
+        if (term.type==='x') {
+          const c=term.coef;
+          if (c===1) el.textContent='+x';
+          else if (c===-1) el.textContent='-x';
+          else if (c>0) el.textContent=`+${c}x`;
+          else el.textContent=`${c}x`;
         } else {
           // num
-          if (item.value >= 0) el.textContent = `+${item.value}`;
-          else el.textContent = `${item.value}`;
+          const v=term.value;
+          if (v>0) el.textContent=`+${v}`;
+          else el.textContent=`${v}`;
         }
 
-        el.addEventListener('dragstart', (e) => {
-          this.draggingTerm = { item, side, index, isFactorItem: true };
-          el.classList.add('dragging');
+        el.draggable=true;
+        el.addEventListener('dragstart',(e)=>{
+          this.draggingTerm={term,index,side:term.side};
         });
-        el.addEventListener('dragend', () => {
-          el.classList.remove('dragging');
-          this.draggingTerm = null;
+        el.addEventListener('dragend',(e)=>{
+          this.draggingTerm=null;
         });
-
         return el;
       }
 
-      moveTerm(dragInfo, targetSide) {
-        if (this.equation.solved) {
-          this.showFeedback("La ecuación ya está resuelta.", "error");
-          return;
-        }
-
-        if (!this.equation.factorView) {
-          // modo normal
-          const { term, index, side } = dragInfo;
-          if (side === 'left') {
-            this.equation.leftTerms.splice(index, 1);
-          } else {
-            this.equation.rightTerms.splice(index, 1);
-          }
-          // invierte signo
-          if (term.type === 'x') {
-            term.coef = -term.coef;
-          } else {
-            term.value = -term.value;
-          }
-          term.side = targetSide;
-          if (targetSide === 'left') {
-            this.equation.leftTerms.push(term);
-          } else {
-            this.equation.rightTerms.push(term);
-          }
-        } else {
-          // factorView
-          const { item } = dragInfo;
-          if (item.type === 'factor') {
-            this.equation.factorTerm.side = targetSide;
-          } else if (item.type === 'x') {
-            this.equation.xTerm.side = targetSide;
-          } else {
-            this.equation.numTerm.side = targetSide;
-          }
-        }
-
-        this.renderEquation();
-        this.recordHistory();
-        // Aquí hacemos el "auto-solve" si factor y numTerm están juntos
-        this.maybeAutoSolve();
-      }
-
-      maybeAutoSolve() {
-        const result = this.equation.autoSolveIfPossible();
-        if (result) {
-          // Se resolvió
-          if (result.infinite) {
-            this.showFeedback("Infinitas soluciones (0=0).", "success");
-            this.solutionEl.textContent = "Infinitas soluciones (cualquier x)";
-            this.solutionEl.classList.add('visible');
-            this.createConfetti();
-          } else if (result.none) {
-            this.showFeedback("Sin solución.", "error");
-            this.solutionEl.textContent = "Sin solución";
-            this.solutionEl.classList.add('visible');
-          } else if (result.value !== undefined) {
-            const val = result.value;
-            this.showFeedback(`x = ${val.toFixed(2)}`, "success");
-            this.solutionEl.textContent = `x = ${val.toFixed(2)}`;
-            this.solutionEl.classList.add('visible');
-            this.createConfetti();
-          }
+      solveEquationStep() {
+        const result=this.equation.solveStep();
+        if (result.error) {
+          this.showFeedback(result.message, "error");
+        } else if (result.infinite) {
+          this.showFeedback("Infinitas soluciones (0=0).", "success");
+          this.solutionEl.classList.add('visible');
+          this.solutionEl.textContent="Infinitas soluciones (cualquier x)";
+        } else if (result.none) {
+          this.showFeedback("Sin solución.", "error");
+          this.solutionEl.classList.add('visible');
+          this.solutionEl.textContent="Sin solución";
+        } else if (result.fraction) {
+          // x = \frac{b}{a}
+          const {a,b} = result;
+          const fracLatex = `x = \\frac{${b}}{${a}}`;
+          this.renderLatexSolution(fracLatex);
+          this.showFeedback(`Mostrando fracción: x = b/a`, "success");
+        } else if (result.decimal) {
+          const val=result.value;
+          const decLatex=`x = ${val.toFixed(2)}`;
+          this.renderLatexSolution(decLatex);
+          this.showFeedback(`Mostrando valor decimal: ${val.toFixed(2)}`, "success");
+        } else if (result.done) {
+          this.showFeedback(result.message, "error");
         }
       }
 
-      newEquation() {
-        this.equation = new StepEquation();
-        this.solutionEl.classList.remove('visible');
-        this.feedbackEl.classList.remove('visible');
-        // borrar historial
-        this.historyEl.querySelectorAll('.history-step').forEach(el => el.remove());
-        this.renderEquation();
-        this.recordHistory();
+      renderLatexSolution(latexString) {
+        this.solutionEl.classList.add('visible');
+        this.solutionEl.innerHTML='';
+        const span=document.createElement('span');
+        this.solutionEl.appendChild(span);
+        // Importante: un solo backslash \(
+        katex.render("\(" + latexString + "\)", span, {throwOnError:false});
       }
 
       recordHistory() {
-        const eqStr = this.equation.getEquationString();
-        const stepEl = document.createElement('div');
-        stepEl.className = 'history-step';
-        stepEl.textContent = eqStr;
+        const eqStr=this.equation.getEquationString();
+        const stepEl=document.createElement('div');
+        stepEl.className='history-step';
+        stepEl.textContent=eqStr;
         this.historyEl.appendChild(stepEl);
       }
 
       showFeedback(msg, type) {
-        this.feedbackEl.textContent = msg;
-        this.feedbackEl.className = `feedback visible ${type}`;
-        setTimeout(() => {
+        this.feedbackEl.textContent=msg;
+        this.feedbackEl.className=`feedback visible ${type}`;
+        setTimeout(()=>{
           this.feedbackEl.classList.remove('visible');
-        }, 4000);
-      }
-
-      createConfetti() {
-        const colors = [
-          '#f44336','#e91e63','#9c27b0','#673ab7','#3f51b5','#2196f3',
-          '#03a9f4','#00bcd4','#2ecc71','#f1c40f','#e67e22','#e74c3c'
-        ];
-        for (let i = 0; i < 60; i++) {
-          const confetti = document.createElement('div');
-          confetti.classList.add('confetti');
-          confetti.style.left = `${Math.random() * 100}%`;
-          confetti.style.top = '-10px';
-          confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-          confetti.style.width = `${Math.random() * 10 + 5}px`;
-          confetti.style.height = `${Math.random() * 10 + 5}px`;
-          confetti.style.animationDuration = `${Math.random() * 2 + 2}s`;
-          document.body.appendChild(confetti);
-          setTimeout(() => {
-            document.body.removeChild(confetti);
-          }, 4000);
-        }
+        },4000);
       }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded',()=>{
       new EquationUI();
+      // Render LaTeX en el body (por si hay notación en instrucciones)
+      renderMathInElement(document.body, {throwOnError:false});
     });
   </script>
 </body>
