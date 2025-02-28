@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Ecuaciones de Primer Grado</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Ecuaciones - Primer Grado</title>
 
   <!-- KaTeX para renderizar expresiones LaTeX -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.0/katex.min.css" />
@@ -241,26 +241,65 @@
       font-family: monospace;
       white-space: pre-wrap;
     }
+
+    /* Formulario de validación: solo 2 campos */
+    .validate-form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    .validate-form label {
+      font-weight: 600;
+    }
+    .validate-form input {
+      width: 60px;
+      text-align: center;
+      padding: 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .validate-btn {
+      background-color: var(--accent-color);
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .validate-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .btn:disabled,
+    .validate-btn:disabled {
+      background-color: #bbb;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>Ecuaciones de Primer Grado</h1>
+    <h1>Ecuaciones - Primer Grado</h1>
   </header>
 
   <section class="instructions">
     <h2>Instrucciones</h2>
     <ol>
-      <li>Arrastra los términos de un lado a otro para agruparlos (se invierte su signo al cruzar el "="). <br>
-          Verás siempre el signo (+ o -) en cada cajita.</li>
-      <li>Pulsa <strong>Combinar Términos</strong> para unir coeficientes de \(x\) y valores numéricos en cada lado.</li>
-      <li>Cuando la ecuación quede en la forma \(a x = b\), pulsa <strong>Resolver</strong>:
+      <li>Mueve todos los términos con \(x\) a un solo lado, y todos los términos numéricos al otro (puede quedar un lado vacío, que equivale a 0).</li>
+      <li>Cuando creas que has logrado separar completamente \(x\) de los números, ingresa:
         <ul>
-          <li>La primera vez mostrará la solución en forma de fracción: \(\displaystyle x = \frac{b}{a}\).</li>
-          <li>La segunda vez mostrará el valor decimal.</li>
+          <li><strong>Suma de coeficientes de \(x\)</strong> (en el lado que tenga \(x\)),</li>
+          <li><strong>Suma de valores numéricos</strong> (en el lado que tenga los números).</li>
         </ul>
       </li>
-      <li>Pulsa <strong>Nueva Ecuación</strong> para generar otro ejercicio.</li>
+      <li>Si tu validación coincide con la realidad, se habilitará el botón <strong>Combinar Términos</strong>.</li>
+      <li>Combina términos y, cuando la ecuación sea \(a x = b\), pulsa <strong>Resolver</strong> (primer clic: fracción, segundo clic: decimal).</li>
+      <li>Pulsa <strong>Nueva Ecuación</strong> para otro ejercicio.</li>
     </ol>
   </section>
 
@@ -268,17 +307,30 @@
     <div class="equation-container">
       <div class="equation-display">
         <div class="equation-side" id="leftSide">
-          <!-- Términos del lado izquierdo -->
+          <!-- Términos lado izquierdo -->
         </div>
         <div class="equals-sign">=</div>
         <div class="equation-side" id="rightSide">
-          <!-- Términos del lado derecho -->
+          <!-- Términos lado derecho -->
         </div>
       </div>
     </div>
 
+    <!-- Formulario de validación: solo 2 campos -->
+    <div class="validate-form">
+      <div>
+        <label for="xSumInput">Suma de coef x:</label>
+        <input type="number" id="xSumInput" />
+      </div>
+      <div>
+        <label for="numSumInput">Suma numéricos:</label>
+        <input type="number" id="numSumInput" />
+      </div>
+      <button class="validate-btn" id="validateBtn">Validar</button>
+    </div>
+
     <div class="controls">
-      <button class="btn" id="combineBtn">Combinar Términos</button>
+      <button class="btn" id="combineBtn" disabled>Combinar Términos</button>
       <button class="btn" id="solveBtn">Resolver</button>
       <button class="btn btn-success" id="newEquationBtn">Nueva Ecuación</button>
     </div>
@@ -288,293 +340,377 @@
 
     <div class="history-container" id="historyContainer">
       <h2>Historial de Pasos</h2>
-      <!-- Cada paso se agregará aquí, en texto normal -->
     </div>
   </div>
 
   <script>
-    // =========== MODELO DE DATOS ============
     class Term {
-      constructor(type, coef, value, side) {
-        // type: 'x' | 'num'
-        // coef: number (para 'x')
-        // value: number (para 'num')
-        // side: 'left' | 'right'
-        this.type = type;    // 'x' o 'num'
-        this.coef = coef;    // válido si type==='x'
-        this.value = value;  // válido si type==='num'
-        this.side = side;
+      constructor(type, coef, value, side){
+        this.type=type;   // 'x' o 'num'
+        this.coef=coef;   // si type==='x'
+        this.value=value; // si type==='num'
+        this.side=side;   // 'left' o 'right'
       }
     }
 
     class Equation {
-      constructor() {
-        this.leftTerms = [];
-        this.rightTerms = [];
-        this.solvedStage = 0; // 0 => sin resolver, 1 => fracción, 2 => decimal
+      constructor(){
+        this.leftTerms=[];
+        this.rightTerms=[];
+        this.solvedStage=0;
         this.generateEquation();
       }
 
-      generateEquation() {
-        const leftCount = this.getRandomInt(2, 4);
-        const rightCount = this.getRandomInt(1, 3);
+      generateEquation(){
+        const leftCount=this.getRandomInt(2,4);
+        const rightCount=this.getRandomInt(1,3);
 
-        this.leftTerms = this.createRandomTerms(leftCount, 'left');
-        this.rightTerms = this.createRandomTerms(rightCount, 'right');
+        this.leftTerms=this.createRandomTerms(leftCount,'left');
+        this.rightTerms=this.createRandomTerms(rightCount,'right');
 
-        // Asegurar al menos un término con x
-        if (!this.hasXTerm()) {
-          this.leftTerms.push(new Term('x', this.getRandomNonZero(-5,5), null, 'left'));
+        if(!this.hasXTerm()){
+          this.leftTerms.push(new Term('x',this.getRandomNonZero(-5,5),null,'left'));
         }
       }
 
-      createRandomTerms(count, side) {
-        const arr = [];
-        for (let i=0; i<count; i++) {
-          const isX = Math.random()<0.5;
-          if (isX) {
-            arr.push(new Term('x', this.getRandomNonZero(-5,5), null, side));
+      createRandomTerms(count,side){
+        const arr=[];
+        for(let i=0;i<count;i++){
+          const isX=Math.random()<0.5;
+          if(isX){
+            arr.push(new Term('x',this.getRandomNonZero(-5,5),null,side));
           } else {
-            arr.push(new Term('num', null, this.getRandomNonZero(-10,10), side));
+            arr.push(new Term('num',null,this.getRandomNonZero(-10,10),side));
           }
         }
         return arr;
       }
 
-      hasXTerm() {
-        return this.leftTerms.some(t=>t.type==='x') || this.rightTerms.some(t=>t.type==='x');
+      hasXTerm(){
+        return this.leftTerms.some(t=>t.type==='x')||this.rightTerms.some(t=>t.type==='x');
       }
 
-      getRandomNonZero(min, max) {
+      getRandomNonZero(min,max){
         let val=0;
         while(val===0){
-          val=this.getRandomInt(min, max);
+          val=this.getRandomInt(min,max);
         }
         return val;
       }
 
-      getRandomInt(min, max) {
+      getRandomInt(min,max){
         return Math.floor(Math.random()*(max-min+1))+min;
       }
 
-      // Combinar términos semejantes en cada lado
-      combineLikeTerms() {
-        if (this.solvedStage>0) return; // si ya empezamos a mostrar solución, no combinamos
-        this.leftTerms = this.combineSide(this.leftTerms, 'left');
-        this.rightTerms = this.combineSide(this.rightTerms, 'right');
+      combineLikeTerms(){
+        if(this.solvedStage>0) return;
+        this.leftTerms=this.combineSide(this.leftTerms,'left');
+        this.rightTerms=this.combineSide(this.rightTerms,'right');
       }
 
-      combineSide(terms, side) {
-        let xCoef=0, numVal=0;
-        for (let t of terms) {
-          if (t.type==='x') {
-            xCoef+=t.coef;
-          } else {
-            numVal+=t.value;
-          }
+      combineSide(terms,side){
+        let xCoef=0,numVal=0;
+        for(let t of terms){
+          if(t.type==='x') xCoef+=t.coef;
+          else numVal+=t.value;
         }
         const newArr=[];
-        if (xCoef!==0) {
-          newArr.push(new Term('x', xCoef, null, side));
-        }
-        if (numVal!==0) {
-          newArr.push(new Term('num', null, numVal, side));
-        }
+        if(xCoef!==0) newArr.push(new Term('x',xCoef,null,side));
+        if(numVal!==0) newArr.push(new Term('num',null,numVal,side));
         return newArr;
       }
 
-      // String textual para historial
-      getEquationString() {
-        const leftStr = this.sideString(this.leftTerms);
-        const rightStr = this.sideString(this.rightTerms);
+      // Calcula la forma textual
+      getEquationString(){
+        const leftStr=this.sideString(this.leftTerms);
+        const rightStr=this.sideString(this.rightTerms);
         return `${leftStr} = ${rightStr}`;
       }
 
-      sideString(terms) {
-        if (terms.length===0) return '0';
+      sideString(terms){
+        // si no hay nada => '0'
+        if(terms.length===0) return '0';
         let result='';
-        for (let t of terms) {
-          if (t.type==='x') {
+        for(let t of terms){
+          if(t.type==='x'){
             const c=t.coef;
-            if (c===1) {
-              result+='+x';
-            } else if (c===-1) {
-              result+='-x';
-            } else if (c>0) {
-              result+=`+${c}x`;
-            } else {
-              result+=`${c}x`;
-            }
+            if(c>0) result+=`+${c}x`;
+            else result+=`${c}x`;
           } else {
-            // num
             const v=t.value;
-            if (v>0) {
-              result+=`+${v}`;
-            } else {
-              result+=`${v}`;
-            }
+            if(v>0) result+=`+${v}`;
+            else result+=`${v}`;
           }
         }
-        // quitar + inicial si existe
-        if (result.startsWith('+')) {
-          result=result.slice(1);
-        }
-        // arreglar +-
+        if(result.startsWith('+')) result=result.slice(1);
         result=result.replace(/\+\-/g,'-');
-        return result.trim() || '0';
+        return result||'0';
       }
 
-      // Detectar si está en la forma a x = b
-      isAxEqB() {
-        const leftX = this.leftTerms.filter(t=>t.type==='x');
-        const leftNum = this.leftTerms.filter(t=>t.type==='num');
-        const rightX = this.rightTerms.filter(t=>t.type==='x');
-        const rightNum = this.rightTerms.filter(t=>t.type==='num');
+      // Retorna true si un lado tiene solo x (o está vacío) y el otro solo num (o vacío)
+      isSeparatedCorrectly(){
+        // Un lado: solo 'x' terms (o ninguno => 0 => x=0?).
+        // Otro lado: solo 'num' terms (o ninguno => 0).
+        // Detectamos si left es x, right es num, o viceversa
+        const leftHasX=this.leftTerms.some(t=>t.type==='x');
+        const leftHasNum=this.leftTerms.some(t=>t.type==='num');
+        const rightHasX=this.rightTerms.some(t=>t.type==='x');
+        const rightHasNum=this.rightTerms.some(t=>t.type==='num');
 
-        // Caso a x = b
-        if (leftX.length===1 && leftNum.length===0 && rightX.length===0 && rightNum.length===1) return true;
-        // Caso b = a x
-        if (rightX.length===1 && rightNum.length===0 && leftX.length===0 && leftNum.length===1) return true;
-        return false;
+        // Caso 1: left => x only, right => num only
+        const leftIsXonly=leftHasX && !leftHasNum || (this.leftTerms.length===0); 
+        const rightIsNumOnly=rightHasNum && !rightHasX || (this.rightTerms.length===0);
+
+        // Caso 2: left => num only, right => x only
+        const leftIsNumOnly=leftHasNum && !leftHasX || (this.leftTerms.length===0);
+        const rightIsXonly=rightHasX && !rightHasNum || (this.rightTerms.length===0);
+
+        const case1=leftIsXonly && rightIsNumOnly;
+        const case2=leftIsNumOnly && rightIsXonly;
+
+        return case1||case2;
       }
 
-      getAB() {
-        // Extraer a y b
-        // a x = b
-        const leftX=this.leftTerms.find(t=>t.type==='x');
-        const rightNum=this.rightTerms.find(t=>t.type==='num');
-        if (leftX && rightNum && this.leftTerms.length===1 && this.rightTerms.length===1) {
-          return {a:leftX.coef, b:rightNum.value};
+      // Suma total de x y num en el lado con x y en el lado con num
+      // Determinamos cuál lado es x-lado y cuál es num-lado
+      getXsumAndNumsum(){
+        // si left es x-lado => sum x de left, sum num de right
+        // si right es x-lado => sum x de right, sum num de left
+        // si un lado está vacío => se considera 0
+
+        const leftHasX=this.leftTerms.some(t=>t.type==='x')||this.leftTerms.length===0;
+        const leftHasNum=this.leftTerms.some(t=>t.type==='num');
+        const rightHasX=this.rightTerms.some(t=>t.type==='x')||this.rightTerms.length===0;
+        const rightHasNum=this.rightTerms.some(t=>t.type==='num');
+
+        // Calcular sum x en left
+        let leftX=0,leftNum=0;
+        this.leftTerms.forEach(t=>{
+          if(t.type==='x') leftX+=t.coef; 
+          else leftNum+=t.value;
+        });
+        // Calcular sum x en right
+        let rightX=0,rightNum=0;
+        this.rightTerms.forEach(t=>{
+          if(t.type==='x') rightX+=t.coef;
+          else rightNum+=t.value;
+        });
+
+        // Caso 1: left = x-lado, right = num-lado
+        // si leftHasNum => no es x-lado
+        // si rightHasX => no es num-lado
+        const leftIsXonly = (leftHasX && !leftHasNum) || (this.leftTerms.length===0);
+        const rightIsNumOnly = (rightHasNum && !rightHasX) || (this.rightTerms.length===0);
+        if(leftIsXonly && rightIsNumOnly){
+          return { xSum:leftX, numSum:rightNum };
         }
-        // b = a x
-        const leftNum=this.leftTerms.find(t=>t.type==='num');
-        const rightX=this.rightTerms.find(t=>t.type==='x');
-        if (leftNum && rightX && this.leftTerms.length===1 && this.rightTerms.length===1) {
-          return {a:rightX.coef, b:leftNum.value};
+
+        // Caso 2: left = num-lado, right = x-lado
+        const leftIsNumOnly = (leftHasNum && !leftHasX) || (this.leftTerms.length===0);
+        const rightIsXonly = (rightHasX && !rightHasNum) || (this.rightTerms.length===0);
+        if(leftIsNumOnly && rightIsXonly){
+          return { xSum:rightX, numSum:leftNum };
         }
+
+        // Si no coincide => null
         return null;
       }
 
-      solveStep() {
-        // 0 => no fracción/decimal mostrado
-        // 1 => fracción mostrada
-        // 2 => decimal mostrado
-        if (!this.isAxEqB()) {
-          return {error:true, message:"No está en la forma ax = b todavía."};
+      // ========== Lógica de "ax=b" =============
+      // Aceptar 0 en un lado
+      isAxEqB(){
+        // Un lado => 1 xTerm (o xCoef !=0) sin numTerm
+        // El otro => 1 numTerm (o 0) sin xTerm
+        // Aceptar 0 => lado vacío => 1 "numTerm" con value=0
+        // Realmente, para "ax=0", un lado vacío se cuenta como "numTerm=0"
+
+        const { xTermCount, numTermCount } = this.countTerms();
+        // xTermCount => # total de x en eq
+        // numTermCount => # total de num en eq
+        // Queremos xTermCount===1 y numTermCount===1 => => ax=b
+        // o xTermCount===1 y numTermCount===0 => => ax=0
+        // en este caso, 0 se interpreta como un "lado vacío" => num=0
+
+        // si xTermCount===1 => y (numTermCount===1 || numTermCount===0) => ok
+        // Comprobamos que en un lado hay xTerm (sin numTerm?), y en el otro hay numTerm (o vacío)
+        if(xTermCount===1 && (numTermCount<=1)){
+          // Revisar la disposición
+          return true;
         }
-        const ab=this.getAB();
-        if (!ab) {
-          return {error:true, message:"No se pudo extraer a y b."};
+        return false;
+      }
+
+      countTerms(){
+        let xTermCount=0,numTermCount=0;
+        // left
+        for(let t of this.leftTerms){
+          if(t.type==='x') xTermCount++;
+          else numTermCount++;
         }
-        const {a,b}=ab;
-        if (a===0) {
-          if (b===0) {
-            return {infinite:true};
+        // right
+        for(let t of this.rightTerms){
+          if(t.type==='x') xTermCount++;
+          else numTermCount++;
+        }
+        return { xTermCount, numTermCount };
+      }
+
+      getAB(){
+        // a x = b => un xTerm en un lado, un numTerm (o 0) en el otro
+        // Detectamos xTerm => side?
+        // Detectamos numTerm => side?
+        // Si no hay numTerm => b=0
+
+        // Buscamos xTerm
+        let xTerm=null;
+        let numVal=0; // si no hay un term num => 0
+
+        // Revisar left
+        if(this.leftTerms.length===1 && this.leftTerms[0].type==='x'){
+          xTerm=this.leftTerms[0];
+          // right => numTerm? o vacio => 0
+          if(this.rightTerms.length===0){
+            numVal=0;
+          } else if(this.rightTerms.length===1 && this.rightTerms[0].type==='num'){
+            numVal=this.rightTerms[0].value;
           } else {
-            return {none:true};
+            return null;
           }
+          return {a:xTerm.coef,b:numVal};
         }
 
-        if (this.solvedStage===0) {
-          // primer clic => fracción
+        // Revisar right
+        if(this.rightTerms.length===1 && this.rightTerms[0].type==='x'){
+          xTerm=this.rightTerms[0];
+          // left => numTerm? o vacio => 0
+          if(this.leftTerms.length===0){
+            numVal=0;
+          } else if(this.leftTerms.length===1 && this.leftTerms[0].type==='num'){
+            numVal=this.leftTerms[0].value;
+          } else {
+            return null;
+          }
+          return {a:xTerm.coef,b:numVal};
+        }
+
+        // Si no se halló => null
+        return null;
+      }
+
+      solveStep(){
+        if(!this.isAxEqB()){
+          return {error:true,message:"No está en la forma ax = b todavía."};
+        }
+        const ab=this.getAB();
+        if(!ab){
+          return {error:true,message:"No se pudo extraer a y b."};
+        }
+        const {a,b}=ab;
+        if(a===0){
+          if(b===0) return {infinite:true};
+          return {none:true};
+        }
+        if(this.solvedStage===0){
           this.solvedStage=1;
           return {fraction:true,a,b};
-        } else if (this.solvedStage===1) {
-          // segundo clic => decimal
+        } else if(this.solvedStage===1){
           this.solvedStage=2;
-          return {decimal:true, value:b/a};
+          return {decimal:true,value:b/a};
         } else {
-          return {done:true, message:"Ya se mostró la solución."};
+          return {done:true,message:"Ya se mostró la solución."};
         }
       }
     }
 
-    // =========== INTERFAZ DE USUARIO ============
     class EquationUI {
-      constructor() {
-        this.leftSideEl = document.getElementById('leftSide');
-        this.rightSideEl = document.getElementById('rightSide');
-        this.feedbackEl = document.getElementById('feedback');
-        this.solutionEl = document.getElementById('solutionDisplay');
-        this.historyEl = document.getElementById('historyContainer');
+      constructor(){
+        this.leftSideEl=document.getElementById('leftSide');
+        this.rightSideEl=document.getElementById('rightSide');
+        this.feedbackEl=document.getElementById('feedback');
+        this.solutionEl=document.getElementById('solutionDisplay');
+        this.historyEl=document.getElementById('historyContainer');
 
-        this.combineBtn = document.getElementById('combineBtn');
-        this.solveBtn = document.getElementById('solveBtn');
-        this.newEquationBtn = document.getElementById('newEquationBtn');
+        this.combineBtn=document.getElementById('combineBtn');
+        this.solveBtn=document.getElementById('solveBtn');
+        this.newEquationBtn=document.getElementById('newEquationBtn');
 
-        this.equation = new Equation();
+        // 2 inputs para validación
+        this.xSumInput=document.getElementById('xSumInput');
+        this.numSumInput=document.getElementById('numSumInput');
+        this.validateBtn=document.getElementById('validateBtn');
+
+        this.equation=new Equation();
         this.draggingTerm=null;
 
         this.initEvents();
         this.renderEquation();
-        this.recordHistory(); // estado inicial
+        this.recordHistory();
       }
 
-      initEvents() {
-        this.setupSide(this.leftSideEl, 'left');
-        this.setupSide(this.rightSideEl, 'right');
+      initEvents(){
+        this.setupSide(this.leftSideEl,'left');
+        this.setupSide(this.rightSideEl,'right');
 
-        this.combineBtn.addEventListener('click', ()=>{
+        this.validateBtn.addEventListener('click',()=>{
+          this.validateSeparation();
+        });
+
+        this.combineBtn.addEventListener('click',()=>{
           this.equation.combineLikeTerms();
           this.renderEquation();
           this.recordHistory();
           this.showFeedback("Términos combinados.", "success");
+          // Deshabilitar combine de nuevo
+          this.combineBtn.disabled=true;
         });
 
-        this.solveBtn.addEventListener('click', ()=>{
+        this.solveBtn.addEventListener('click',()=>{
           this.solveEquationStep();
         });
 
-        this.newEquationBtn.addEventListener('click', ()=>{
-          this.equation = new Equation();
+        this.newEquationBtn.addEventListener('click',()=>{
+          this.equation=new Equation();
           this.solutionEl.classList.remove('visible');
           this.feedbackEl.classList.remove('visible');
-          // limpiar historial
           this.historyEl.querySelectorAll('.history-step').forEach(el=>el.remove());
           this.renderEquation();
           this.recordHistory();
+          this.combineBtn.disabled=true;
         });
       }
 
-      setupSide(sideEl, side) {
+      setupSide(sideEl,side){
         sideEl.addEventListener('dragover',(e)=>{
           e.preventDefault();
         });
         sideEl.addEventListener('drop',(e)=>{
           e.preventDefault();
-          if (!this.draggingTerm) return;
-          const {term,index,side:oldSide} = this.draggingTerm;
-          if (oldSide!==side) {
-            // Quitar del array original
-            if (oldSide==='left') {
-              this.equation.leftTerms.splice(index,1);
-            } else {
-              this.equation.rightTerms.splice(index,1);
-            }
-            // Invertir signo
-            if (term.type==='x') {
-              term.coef=-term.coef;
-            } else {
-              term.value=-term.value;
-            }
+          if(!this.draggingTerm)return;
+          const {term,index,side:oldSide}=this.draggingTerm;
+          if(oldSide!==side){
+            // quitar
+            if(oldSide==='left') this.equation.leftTerms.splice(index,1);
+            else this.equation.rightTerms.splice(index,1);
+            // invertir signo
+            if(term.type==='x') term.coef=-term.coef;
+            else term.value=-term.value;
             term.side=side;
-            if (side==='left') {
-              this.equation.leftTerms.push(term);
-            } else {
-              this.equation.rightTerms.push(term);
-            }
+            if(side==='left') this.equation.leftTerms.push(term);
+            else this.equation.rightTerms.push(term);
             this.renderEquation();
             this.recordHistory();
+            // forzar revalidación
+            this.combineBtn.disabled=true;
           }
         });
       }
 
-      renderEquation() {
+      renderEquation(){
         this.leftSideEl.innerHTML='';
         this.rightSideEl.innerHTML='';
 
-        // Lado izquierdo
-        if (this.equation.leftTerms.length===0) {
+        // left
+        if(this.equation.leftTerms.length===0){
           const zeroEl=document.createElement('div');
           zeroEl.className='term';
           zeroEl.textContent='0';
@@ -585,8 +721,8 @@
           });
         }
 
-        // Lado derecho
-        if (this.equation.rightTerms.length===0) {
+        // right
+        if(this.equation.rightTerms.length===0){
           const zeroEl=document.createElement('div');
           zeroEl.className='term';
           zeroEl.textContent='0';
@@ -598,23 +734,19 @@
         }
       }
 
-      createTermEl(term, index) {
+      createTermEl(term,index){
         const el=document.createElement('div');
         el.className='term';
-        // Siempre mostrar signo
-        if (term.type==='x') {
+        // siempre con signo
+        if(term.type==='x'){
           const c=term.coef;
-          if (c===1) el.textContent='+x';
-          else if (c===-1) el.textContent='-x';
-          else if (c>0) el.textContent=`+${c}x`;
+          if(c>0) el.textContent=`+${c}x`;
           else el.textContent=`${c}x`;
         } else {
-          // num
           const v=term.value;
-          if (v>0) el.textContent=`+${v}`;
+          if(v>0) el.textContent=`+${v}`;
           else el.textContent=`${v}`;
         }
-
         el.draggable=true;
         el.addEventListener('dragstart',(e)=>{
           this.draggingTerm={term,index,side:term.side};
@@ -625,44 +757,71 @@
         return el;
       }
 
-      solveEquationStep() {
-        const result=this.equation.solveStep();
-        if (result.error) {
-          this.showFeedback(result.message, "error");
-        } else if (result.infinite) {
-          this.showFeedback("Infinitas soluciones (0=0).", "success");
-          this.solutionEl.classList.add('visible');
-          this.solutionEl.textContent="Infinitas soluciones (cualquier x)";
-        } else if (result.none) {
-          this.showFeedback("Sin solución.", "error");
-          this.solutionEl.classList.add('visible');
-          this.solutionEl.textContent="Sin solución";
-        } else if (result.fraction) {
-          // x = \frac{b}{a}
-          const {a,b} = result;
-          const fracLatex = `x = \\frac{${b}}{${a}}`;
-          this.renderLatexSolution(fracLatex);
-          this.showFeedback(`Mostrando fracción: x = b/a`, "success");
-        } else if (result.decimal) {
-          const val=result.value;
-          const decLatex=`x = ${val.toFixed(2)}`;
-          this.renderLatexSolution(decLatex);
-          this.showFeedback(`Mostrando valor decimal: ${val.toFixed(2)}`, "success");
-        } else if (result.done) {
-          this.showFeedback(result.message, "error");
+      // Validar que x side y num side estén correctos
+      validateSeparation(){
+        // 1) Comprobar que efectivamente un lado es solo x, el otro es solo num
+        if(!this.equation.isSeparatedCorrectly()){
+          this.showFeedback("Aún no has puesto todos los términos de x en un solo lado y los numéricos en el otro.", "error");
+          return;
+        }
+        // 2) Obtener sum x y sum num
+        const sums=this.equation.getXsumAndNumsum();
+        if(!sums){
+          this.showFeedback("Hubo un problema identificando el lado de x y el lado de números.", "error");
+          return;
+        }
+        const {xSum,numSum}=sums;
+        // 3) Comparar con inputs
+        const userXSum=parseFloat(this.xSumInput.value);
+        const userNumSum=parseFloat(this.numSumInput.value);
+        if(isNaN(userXSum)||isNaN(userNumSum)){
+          this.showFeedback("Ingresa valores numéricos en ambos campos.", "error");
+          return;
+        }
+        if(userXSum===xSum && userNumSum===numSum){
+          this.showFeedback("¡Validación correcta! Ahora puedes combinar términos.", "success");
+          this.combineBtn.disabled=false;
+        } else {
+          this.showFeedback(`Validación incorrecta. xSum real=${xSum}, numSum real=${numSum}`, "error");
         }
       }
 
-      renderLatexSolution(latexString) {
+      solveEquationStep(){
+        const result=this.equation.solveStep();
+        if(result.error){
+          this.showFeedback(result.message,"error");
+        } else if(result.infinite){
+          this.showFeedback("Infinitas soluciones (0=0).","success");
+          this.solutionEl.classList.add('visible');
+          this.solutionEl.textContent="Infinitas soluciones (cualquier x)";
+        } else if(result.none){
+          this.showFeedback("Sin solución.","error");
+          this.solutionEl.classList.add('visible');
+          this.solutionEl.textContent="Sin solución";
+        } else if(result.fraction){
+          const {a,b}=result;
+          const fracLatex=`x = \\frac{${b}}{${a}}`;
+          this.renderLatexSolution(fracLatex);
+          this.showFeedback("Mostrando fracción (primer clic).","success");
+        } else if(result.decimal){
+          const val=result.value;
+          const decLatex=`x = ${val.toFixed(2)}`;
+          this.renderLatexSolution(decLatex);
+          this.showFeedback(`Mostrando decimal (segundo clic): ${val.toFixed(2)}`, "success");
+        } else if(result.done){
+          this.showFeedback(result.message,"error");
+        }
+      }
+
+      renderLatexSolution(latexString){
         this.solutionEl.classList.add('visible');
         this.solutionEl.innerHTML='';
         const span=document.createElement('span');
         this.solutionEl.appendChild(span);
-        // Importante: un solo backslash \(
         katex.render("\(" + latexString + "\)", span, {throwOnError:false});
       }
 
-      recordHistory() {
+      recordHistory(){
         const eqStr=this.equation.getEquationString();
         const stepEl=document.createElement('div');
         stepEl.className='history-step';
@@ -670,7 +829,7 @@
         this.historyEl.appendChild(stepEl);
       }
 
-      showFeedback(msg, type) {
+      showFeedback(msg,type){
         this.feedbackEl.textContent=msg;
         this.feedbackEl.className=`feedback visible ${type}`;
         setTimeout(()=>{
@@ -681,8 +840,7 @@
 
     document.addEventListener('DOMContentLoaded',()=>{
       new EquationUI();
-      // Render LaTeX en el body (por si hay notación en instrucciones)
-      renderMathInElement(document.body, {throwOnError:false});
+      renderMathInElement(document.body,{throwOnError:false});
     });
   </script>
 </body>
